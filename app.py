@@ -28,15 +28,14 @@ def home():
     return jsonify({'status': 'Word Counter API is running ✅'}), 200
 
 def count_metrics(text, include_sentences=False, include_paragraphs=False):
-    # Normalize newlines
     text = text.replace('\r\n', '\n').replace('\r', '\n')
 
-    # Accurate word count: ignore blank lines, extra whitespace
-    words = re.findall(r'\b\w+\b', text)
+    words = text.split()
+    word_count = len([w for w in words if w.strip()])
     characters = len(text)
 
     result = {
-        "word_count": len(words),
+        "word_count": word_count,
         "character_count": characters
     }
 

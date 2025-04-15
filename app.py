@@ -32,7 +32,7 @@ def count_metrics(text, include_sentences=False, include_paragraphs=False):
 
     words = text.split()
     word_count = len([w for w in words if w.strip()])
-    characters = len(text)
+    characters = len(text.rstrip('\n'))
 
     result = {
         "word_count": word_count,

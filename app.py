@@ -15,7 +15,7 @@ CORS(app)
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Auto-delete files after 1 minute
+# Auto-delete after 1 minute
 def delete_file_later(path, delay=60):
     def remove():
         time.sleep(delay)
@@ -28,8 +28,13 @@ def home():
     return jsonify({'status': 'Word Counter API is running ✅'}), 200
 
 def count_metrics(text, include_sentences=False, include_paragraphs=False):
+    # Normalize newlines
+    text = text.replace('\r\n', '\n').replace('\r', '\n')
+
+    # Accurate word count: ignore blank lines, extra whitespace
     words = re.findall(r'\b\w+\b', text)
     characters = len(text)
+
     result = {
         "word_count": len(words),
         "character_count": characters
@@ -40,7 +45,7 @@ def count_metrics(text, include_sentences=False, include_paragraphs=False):
         result["sentence_count"] = len([s for s in sentences if s.strip()])
 
     if include_paragraphs:
-        paragraphs = text.strip().split("\n\n")
+        paragraphs = text.strip().split('\n\n')
         result["paragraph_count"] = len([p for p in paragraphs if p.strip()])
 
     return result

@@ -52,41 +52,43 @@ def count_metrics(text, include_sentences=False, include_paragraphs=False):
 @app.route('/analyze', methods=['POST'])
 def analyze_text():
     file = request.files.get('file')
-    raw_text = ""
+    raw_text = request.form.get('text', '').strip()
 
     include_sentences = request.form.get('include_sentences', 'false') == 'true'
     include_paragraphs = request.form.get('include_paragraphs', 'false') == 'true'
 
-    if not file:
-        return jsonify({"error": "No file uploaded"}), 400
+    if not file and not raw_text:
+        return jsonify({"error": "No file or text provided"}), 400
 
-    filename = secure_filename(file.filename)
-    file_ext = filename.lower().split('.')[-1]
-    file_id = str(uuid.uuid4())
-    saved_path = os.path.join(UPLOAD_FOLDER, f"{file_id}_{filename}")
-    file.save(saved_path)
+    if file:
+        filename = secure_filename(file.filename)
+        file_ext = filename.lower().split('.')[-1]
+        file_id = str(uuid.uuid4())
+        saved_path = os.path.join(UPLOAD_FOLDER, f"{file_id}_{filename}")
+        file.save(saved_path)
 
-    try:
-        if file_ext == "txt":
-            with open(saved_path, "r", encoding="utf-8", errors="ignore") as f:
-                raw_text = f.read()
-        elif file_ext == "pdf":
-            with pdfplumber.open(saved_path) as pdf:
-                raw_text = "\n".join([page.extract_text() or "" for page in pdf.pages])
-        elif file_ext == "docx":
-            doc = docx.Document(saved_path)
-            raw_text = "\n".join([para.text for para in doc.paragraphs])
-        else:
+        try:
+            if file_ext == "txt":
+                with open(saved_path, "r", encoding="utf-8", errors="ignore") as f:
+                    raw_text = f.read()
+            elif file_ext == "pdf":
+                with pdfplumber.open(saved_path) as pdf:
+                    raw_text = "\n".join([page.extract_text() or "" for page in pdf.pages])
+            elif file_ext == "docx":
+                doc = docx.Document(saved_path)
+                raw_text = "\n".join([para.text for para in doc.paragraphs])
+            else:
+                delete_file_later(saved_path)
+                return jsonify({"error": "Unsupported file format"}), 400
+
             delete_file_later(saved_path)
-            return jsonify({"error": "Unsupported file format"}), 400
 
-        delete_file_later(saved_path)
-        return jsonify(count_metrics(raw_text, include_sentences, include_paragraphs))
+        except Exception as e:
+            print("❌ Error:", e)
+            delete_file_later(saved_path)
+            return jsonify({"error": "Failed to analyze file"}), 500
 
-    except Exception as e:
-        print("❌ Error:", e)
-        delete_file_later(saved_path)
-        return jsonify({"error": "Failed to analyze file"}), 500
+    return jsonify(count_metrics(raw_text, include_sentences, include_paragraphs))
 
 if __name__ == '__main__':
     app.run(debug=False)

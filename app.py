@@ -91,4 +91,4 @@ def analyze_text():
     return jsonify(count_metrics(raw_text, include_sentences, include_paragraphs))
 
 if __name__ == '__main__':
-    app.run(debug=False)
+    app.run(host='0.0.0.0', port=5000, debug=False)

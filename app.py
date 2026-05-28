@@ -12,16 +12,60 @@ import re
 app = Flask(__name__)
 CORS(app)
 
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
+
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Auto-delete after 1 minute
-def delete_file_later(path, delay=60):
+# Auto-delete after 2 minute
+def delete_file_later(path, delay=120):
     def remove():
         time.sleep(delay)
         if os.path.exists(path):
             os.remove(path)
     threading.Thread(target=remove).start()
+
+# --- BACKGROUND SWEEPER TO PREVENT SSD LEAKS ---
+
+# 1. Update this list with the exact folder names your app uses!
+CLEANUP_FOLDERS = ['uploads', 'outputs', 'temp'] 
+
+# 2. Set how old a file must be before it gets deleted (e.g., 300 seconds = 5 mins)
+MAX_AGE_SECONDS = 300 
+
+def periodic_cleanup():
+    while True:
+        try:
+            current_time = time.time()
+            for folder in CLEANUP_FOLDERS:
+                # Skip the folder if it hasn't been created yet
+                if not os.path.exists(folder):
+                    continue
+                
+                for filename in os.listdir(folder):
+                    filepath = os.path.join(folder, filename)
+                    
+                    # Check if it's a file and older than MAX_AGE_SECONDS
+                    if os.path.isfile(filepath):
+                        file_age = current_time - os.path.getmtime(filepath)
+                        if file_age > MAX_AGE_SECONDS:
+                            try:
+                                os.remove(filepath)
+                                print(f"Sweeper deleted orphaned file: {filename}")
+                            except Exception as e:
+                                # Catch "File Locked" errors if a user is currently downloading it
+                                print(f"Sweeper skipped locked file {filename}: {e}")
+                                
+        except Exception as e:
+            print(f"Sweeper critical error: {e}")
+            
+        # Go back to sleep for 5 minutes before waking up to check again
+        time.sleep(300)
+
+# Start the silent background thread (daemon=True ensures it doesn't block Gunicorn shutdowns)
+sweeper_thread = threading.Thread(target=periodic_cleanup, daemon=True)
+sweeper_thread.start()
+# -----------------------------------------------
 
 @app.route('/')
 def home():
